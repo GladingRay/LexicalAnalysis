@@ -233,6 +233,6 @@ fn main() {
     for elem in &vec_char {
         print!("{}", make_regxchar_char(elem));
     }
-    println!("here is dev");
+    
 
 }
