@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+
 enum OperatorKind{
     Cat,
     Or,
@@ -12,8 +13,9 @@ enum RegxChar{
     RightBracket
 }
 
-
-
+/*
+    正则表达式转换部分
+*/
 fn need_push_stack(stack_top: &RegxChar, now_char: &OperatorKind) -> bool {
     if let RegxChar::LeftBracket = stack_top  {
         return true;
@@ -130,7 +132,7 @@ fn regx_to_suffix(regx : String) -> Vec<RegxChar> {
     let mut stack : VecDeque<RegxChar> = VecDeque::new();
     for regx_char in  regx_vec {
         match regx_char {
-            RegxChar::NormalChar(c) => {
+            RegxChar::NormalChar(_c) => {
                 regx_suffix.push(regx_char);
             },
             RegxChar::LeftBracket => {
@@ -143,7 +145,7 @@ fn regx_to_suffix(regx : String) -> Vec<RegxChar> {
                             stack.pop_back();
                             break;
                         }
-                        else if let RegxChar::OperatorChar(nc) = c {
+                        else if let RegxChar::OperatorChar(_nc) = c {
                             let temp = stack.pop_back();
                             if let Some(x) = temp {
                                 regx_suffix.push(x);
@@ -193,17 +195,44 @@ fn regx_to_suffix(regx : String) -> Vec<RegxChar> {
     regx_suffix
 }
 
+/*
+    构造NFA部分
+*/
+
+enum TransformChar {
+    NormalChar(char),
+    VoidChar
+}
+
+struct Transform<'a> {
+    transform : &'a TransformChar,
+    dest : &'a NFAState<'a> 
+}
+
+struct NFAState<'a> {
+    name : u32,
+    transforms : Vec<&'a Transform<'a>>,
+}
+
+impl NFAState<'_> {
+
+}
+
+struct NFA<'a> {
+    start : &'a NFAState<'a>,
+    end : &'a NFAState<'a>
+}
+
+impl NFA<'_> {
+
+}
+
 fn main() {
-    let mut regx = String::from("ab(a*|b)a");
+    let regx = String::from("ab(a*|b)a*");
     let vec_char : Vec<RegxChar> = regx_to_suffix(regx);
     for elem in &vec_char {
         print!("{}", make_regxchar_char(elem));
     }
-    println!();
-    
-    // let prioritize_table = [
-    //     [false, false, false],
-    //     [true, false, true],
-    //     [true, false, false]
-    // ];
+    println!("here is dev");
+
 }
