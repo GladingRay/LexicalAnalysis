@@ -1,238 +1,129 @@
+mod regx_process;
+mod nfa;
+use regx_process::*;
+use nfa::*;
 use std::collections::VecDeque;
 
-enum OperatorKind{
-    Cat,
-    Or,
-    Closure
-}
 
-enum RegxChar{
-    NormalChar(char),
-    OperatorChar(OperatorKind),
-    LeftBracket,
-    RightBracket
-}
 
-/*
-    正则表达式转换部分
-*/
-fn need_push_stack(stack_top: &RegxChar, now_char: &OperatorKind) -> bool {
-    if let RegxChar::LeftBracket = stack_top  {
-        return true;
-    }
-    else if let RegxChar::OperatorChar(oc) = stack_top {
-        match oc {
-            OperatorKind::Cat => {
-                match now_char {
-                    OperatorKind::Cat => {
-                        return false;
-                    },
-                    OperatorKind::Closure => {
-                        return true;
-                    },
-                    OperatorKind::Or => {
-                        return false;
-                    }
-                }
-            },
-            OperatorKind::Closure => {
-                match now_char {
-                    OperatorKind::Cat => {
-                        return false;
-                    },
-                    OperatorKind::Closure => {
-                        return false;
-                    },
-                    OperatorKind::Or => {
-                        return false;
-                    }
-                }
-            },
-            OperatorKind::Or => {
-                match now_char {
-                    OperatorKind::Cat => {
-                        return true;
-                    },
-                    OperatorKind::Closure => {
-                        return true;
-                    },
-                    OperatorKind::Or => {
-                        return false;
-                    }
-                }
-            }
+fn convert_regx_nfa(regx_char_vec: Vec<RegxChar>) -> (Vec<NFAState>, NFA) {
+    let mut nfastate_vec: Vec<NFAState> = Vec::new();
+    let mut nfa_stack: VecDeque<NFA> = VecDeque::new();
+    for regx_char in & regx_char_vec {
+        if let RegxChar::NormalChar(n_c) = regx_char {
+            nfastate_vec.push(NFAState::new(nfastate_vec.len()));
+            nfastate_vec.push(NFAState::new(nfastate_vec.len()));
+            let new1 = nfastate_vec.len()-2;
+            let new2 = nfastate_vec.len()-1;
+            nfastate_vec[new1].add_transform(NFATransform::new(TransformChar::from(*n_c), new2));
+            nfa_stack.push_back(NFA::new(new1, new2));
         }
-    }
-    false
-}
+        else if let RegxChar::OperatorChar(o_c) = regx_char {
+            match o_c {
+                OperatorKind::Cat => {
+                    let temp_nfa1 = if let Some(c) = nfa_stack.pop_back(){
+                                        c
+                                    } else {NFA::new(0, 0)};
+                    let temp_nfa2 = if let Some(c) = nfa_stack.pop_back(){
+                        c
+                    } else {NFA::new(0, 0)};
+                    nfastate_vec[temp_nfa2.get_end()].add_transform(NFATransform::new_void(temp_nfa1.get_start()));
+                    nfa_stack.push_back(NFA::new(temp_nfa2.get_start(), temp_nfa1.get_end()));
 
-fn is_operator(c: char) -> bool {
-    c == '|' || c == '*' || c == '.'
-}
-
-fn is_bracket(c: char) -> bool {
-    c == '(' || c == ')'
-}
-
-fn is_normal_char(c: char) -> bool {
-    !is_operator(c) && !is_bracket(c)
-}
-
-fn need_insert_cat(c1: char, c2: char) -> bool {
-    is_normal_char(c1) && c2 == '(' || c1 == ')' && is_normal_char(c2) || c1 == '*' && is_normal_char(c2) 
-        || is_normal_char(c1) && is_normal_char(c2)
-}
-
-fn make_regx_char (c: char) -> RegxChar {
-    match c {
-        '(' => RegxChar::LeftBracket,
-        ')' => RegxChar::RightBracket,
-        '|' => RegxChar::OperatorChar(OperatorKind::Or),
-        '*' => RegxChar::OperatorChar(OperatorKind::Closure),
-        '.' => RegxChar::OperatorChar(OperatorKind::Cat),
-        _  =>  RegxChar::NormalChar(c),
-    }
-}
-
-fn make_regxchar_char (rc: &RegxChar) -> char {
-    match rc {
-        RegxChar::LeftBracket => '(',
-        RegxChar::RightBracket => ')',
-        RegxChar::OperatorChar(OperatorKind::Cat) => '.',
-        RegxChar::OperatorChar(OperatorKind::Closure) => '*',
-        RegxChar::OperatorChar(OperatorKind::Or) => '|',
-        RegxChar::NormalChar(res_c) => *res_c,
-    }
-}
-
-fn insert_cat_regx(regx : String) -> Vec<RegxChar> {
-    let mut j = true;
-    let mut res: Vec<RegxChar > = Vec::new();
-    let mut oc:char = '(';
-    for c in regx.chars() {
-        if j {
-            res.push(make_regx_char(c));
-            j = false;
-            oc = c;
-        }
-        else {
-            if need_insert_cat(oc, c) {
-                res.push(make_regx_char('.'));
-            }
-            res.push(make_regx_char(c));
-            oc = c;
-        }
-    }
-    res
-}
-
-fn regx_to_suffix(regx : String) -> Vec<RegxChar> {
-    let mut regx_suffix : Vec<RegxChar> = Vec::new();
-    let regx_vec : Vec<RegxChar> = insert_cat_regx(regx);
-    let mut stack : VecDeque<RegxChar> = VecDeque::new();
-    for regx_char in  regx_vec {
-        match regx_char {
-            RegxChar::NormalChar(_c) => {
-                regx_suffix.push(regx_char);
-            },
-            RegxChar::LeftBracket => {
-                stack.push_back(regx_char);
-            },
-            RegxChar::RightBracket => {
-                loop {
-                    if let Some(c) = stack.back() {
-                        if let RegxChar::LeftBracket = *c {
-                            stack.pop_back();
-                            break;
-                        }
-                        else if let RegxChar::OperatorChar(_nc) = c {
-                            let temp = stack.pop_back();
-                            if let Some(x) = temp {
-                                regx_suffix.push(x);
-                            }
-                        }
-                    }
-                    else if let None = stack.back() {
-                        break;
-                    }
-                }  
-            },
-            RegxChar::OperatorChar(oc) => {
-                loop {
+                },
+                OperatorKind::Closure => {
+                    let temp_nfa1 = if let Some(c) = nfa_stack.pop_back(){
+                        c
+                    } else {NFA::new(0, 0)};
+                    nfastate_vec.push(NFAState::new(nfastate_vec.len()));
+                    nfastate_vec.push(NFAState::new(nfastate_vec.len()));
+                    let new1 = nfastate_vec.len()-2;
+                    let new2 = nfastate_vec.len()-1;
                     
-                    match stack.back() {
-                        Some(c) => {
-                            if need_push_stack(c, &oc) {
-                                stack.push_back(RegxChar::OperatorChar(oc));
-                                break;
-                            }
-                            else {
-                                if let Some(x) = stack.pop_back() {
-                                    regx_suffix.push(x);
-                                }
-                            }
-                        }
-                        None => {
-                            stack.push_back(RegxChar::OperatorChar(oc));
-                            break;
-                        }
-                    }
+                    nfastate_vec[new1].add_transform(NFATransform::new_void(temp_nfa1.get_start()));
+                    nfastate_vec[new1].add_transform(NFATransform::new_void(new2));
+                    
+                    nfastate_vec[temp_nfa1.get_end()].add_transform(NFATransform::new_void(temp_nfa1.get_start()));
+                    nfastate_vec[temp_nfa1.get_end()].add_transform(NFATransform::new_void(new2));
+                    
+                    nfa_stack.push_back(NFA::new(new1, new2));
+                },
+                OperatorKind::Or => {
+                    let temp_nfa1 = if let Some(c) = nfa_stack.pop_back(){
+                        c
+                    } else {NFA::new(0, 0)};
+                    let temp_nfa2 = if let Some(c) = nfa_stack.pop_back(){
+                        c
+                    } else {NFA::new(0, 0)};
+
+                    nfastate_vec.push(NFAState::new(nfastate_vec.len()));
+                    nfastate_vec.push(NFAState::new(nfastate_vec.len()));
+                    let new1 = nfastate_vec.len()-2;
+                    let new2 = nfastate_vec.len()-1;
+
+                    nfastate_vec[new1].add_transform(NFATransform::new_void(temp_nfa1.get_start()));
+                    nfastate_vec[new1].add_transform(NFATransform::new_void(temp_nfa2.get_start()));
+
+                    nfastate_vec[temp_nfa1.get_end()].add_transform(NFATransform::new_void(new2));
+                    nfastate_vec[temp_nfa2.get_end()].add_transform(NFATransform::new_void(new2));
+
+                    nfa_stack.push_back(NFA::new(new1, new2));
+
                 }
-                
-            } 
-        }
-    }
-    loop {
-        match stack.pop_back() {
-            Some(x) => {
-                regx_suffix.push(x);
-            },
-            None => {
-                break;
             }
         }
     }
-    regx_suffix
+    let res_nfa = if let Some(c) = nfa_stack.pop_back() {
+                        c
+                  } else {
+                    NFA::new(0, 0)
+                  };
+                
+    (nfastate_vec, res_nfa)
 }
 
-/*
-    构造NFA部分
-*/
 
-enum TransformChar {
-    NormalChar(char),
-    VoidChar
+fn print_regx(regx_char_vec: &Vec<RegxChar>) {
+    for elem in regx_char_vec {
+        print!("{}", make_regxchar_char(elem));
+    }
+    println!();
 }
 
-struct Transform<'a> {
-    transform : &'a TransformChar,
-    dest : &'a NFAState<'a> 
-}
-
-struct NFAState<'a> {
-    name : u32,
-    transforms : Vec<&'a Transform<'a>>,
-}
-
-impl NFAState<'_> {
-
-}
-
-struct NFA<'a> {
-    start : &'a NFAState<'a>,
-    end : &'a NFAState<'a>
-}
-
-impl NFA<'_> {
-
+fn print_nfa(nfa: &NFA, nfastate_vec: &Vec<NFAState>) {
+    let mut flag: Vec<bool> = Vec::new();
+    let mut index = 0;
+    println!("this nfa start on {}, end on {}", nfa.get_start(), nfa.get_end());
+    while index < nfastate_vec.len() {
+        flag.push(false);
+        index = index + 1;
+    }
+    let mut queue: VecDeque<usize> = VecDeque::new();
+    queue.push_back(nfa.get_start());
+    flag[nfa.get_start()] = true;
+    while !queue.is_empty() {
+        let temp_state = if let Some(c) = queue.pop_front() {
+                            c
+                        }
+                        else {
+                            println!("108 error!");
+                            nfa.get_start()
+                        };
+        for transform in nfastate_vec[temp_state].get_transforms() {
+            println!("{}-{}->{} ", temp_state, transform.transform.to_char(), transform.dest);
+            if flag[transform.dest] == false {
+                queue.push_back(transform.dest);
+                flag[transform.dest] = true;
+            }
+        }
+    }
 }
 
 fn main() {
-    let regx = String::from("ab(a*|b)a*");
-    let vec_char : Vec<RegxChar> = regx_to_suffix(regx);
-    for elem in &vec_char {
-        print!("{}", make_regxchar_char(elem));
-    }
-    
+    let regx = String::from("ac|b*");
+    let regx_char_vec : Vec<RegxChar> = regx_to_suffix(regx);
+    print_regx(&regx_char_vec);
+    let (nfastate_vec,nfa) = convert_regx_nfa(regx_char_vec);
+    print_nfa(&nfa, &nfastate_vec);
 
 }
