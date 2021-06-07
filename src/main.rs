@@ -1,9 +1,11 @@
 mod regx_process;
 mod nfa;
+mod dfa;
 use regx_process::*;
 use nfa::*;
+use dfa::*;
 use std::collections::VecDeque;
-
+use std::collections::HashSet;
 
 
 fn convert_regx_nfa(regx_char_vec: Vec<RegxChar>) -> (Vec<NFAState>, NFA) {
@@ -83,11 +85,47 @@ fn convert_regx_nfa(regx_char_vec: Vec<RegxChar>) -> (Vec<NFAState>, NFA) {
 }
 
 
-fn print_regx(regx_char_vec: &Vec<RegxChar>) {
-    for elem in regx_char_vec {
-        print!("{}", make_regxchar_char(elem));
+fn get_void_closure (nfastate_vec: &Vec<NFAState>, now: usize, end: usize) -> (HashSet<usize>, bool) {
+    let mut res: HashSet<usize> = HashSet::new();
+    let mut temp_queue: VecDeque<usize> = VecDeque::new();
+    let mut flag: Vec<bool> = Vec::new();
+    let mut index = 0;
+    let mut is_end = false;
+    while index < nfastate_vec.len() {
+        flag.push(false);
+        index = index + 1;
     }
-    println!();
+    temp_queue.push_back(now);
+    flag[now] = true;
+    while !temp_queue.is_empty() {
+        let temp = if let Some(n) = temp_queue.pop_front() {
+            n
+        }
+        else {0};
+        res.insert(temp);
+        if temp == end {
+            is_end = true;
+        }
+        for transform in nfastate_vec[temp].get_transforms() {
+            if let TransformChar::VoidChar = transform.transform {
+                if flag[transform.dest] == false {
+                    temp_queue.push_back(transform.dest);
+                    flag[transform.dest] = true;
+                }
+            };
+        }
+    }
+    (res, is_end)
+}
+
+fn convert_nfa_dfa (nfastate_vec: &Vec<NFAState>, nfa: NFA) ->DFA {
+    let mut dfa = DFA::new();
+    let (closure_set, is_end) = get_void_closure(nfastate_vec, nfa.get_start(), nfa.get_end());
+    dfa.add_dfa_state(DFAState::new(dfa.gen_next_name(), closure_set, is_end));
+    
+    
+    
+    dfa
 }
 
 fn print_nfa(nfa: &NFA, nfastate_vec: &Vec<NFAState>) {
@@ -106,7 +144,7 @@ fn print_nfa(nfa: &NFA, nfastate_vec: &Vec<NFAState>) {
                             c
                         }
                         else {
-                            println!("108 error!");
+                            println!("110 error!");
                             nfa.get_start()
                         };
         for transform in nfastate_vec[temp_state].get_transforms() {

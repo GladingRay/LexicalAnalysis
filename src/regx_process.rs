@@ -195,3 +195,10 @@ pub fn regx_to_suffix(regx : String) -> Vec<RegxChar> {
     }
     regx_suffix
 }
+
+pub fn print_regx(regx_char_vec: &Vec<RegxChar>) {
+    for elem in regx_char_vec {
+        print!("{}", make_regxchar_char(elem));
+    }
+    println!();
+}
