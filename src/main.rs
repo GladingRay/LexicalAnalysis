@@ -6,6 +6,7 @@ use nfa::*;
 use dfa::*;
 use std::collections::VecDeque;
 use std::collections::HashSet;
+use std::collections::HashMap;
 
 
 fn convert_regx_nfa(regx_char_vec: Vec<RegxChar>) -> (Vec<NFAState>, NFA) {
@@ -84,9 +85,8 @@ fn convert_regx_nfa(regx_char_vec: Vec<RegxChar>) -> (Vec<NFAState>, NFA) {
     (nfastate_vec, res_nfa)
 }
 
-
 fn get_void_closure (nfastate_vec: &Vec<NFAState>, now: usize, end: usize) -> (HashSet<usize>, bool) {
-    let mut res: HashSet<usize> = HashSet::new();
+    let mut closure_set: HashSet<usize> = HashSet::new();
     let mut temp_queue: VecDeque<usize> = VecDeque::new();
     let mut flag: Vec<bool> = Vec::new();
     let mut index = 0;
@@ -102,7 +102,7 @@ fn get_void_closure (nfastate_vec: &Vec<NFAState>, now: usize, end: usize) -> (H
             n
         }
         else {0};
-        res.insert(temp);
+        closure_set.insert(temp);
         if temp == end {
             is_end = true;
         }
@@ -115,16 +115,66 @@ fn get_void_closure (nfastate_vec: &Vec<NFAState>, now: usize, end: usize) -> (H
             };
         }
     }
-    (res, is_end)
+    (closure_set, is_end)
 }
 
-fn convert_nfa_dfa (nfastate_vec: &Vec<NFAState>, nfa: NFA) ->DFA {
+fn get_set_void_closure(nfastate_vec: &Vec<NFAState>, set: &HashSet<usize>, end: usize) -> (HashSet<usize>, bool) {
+    let mut res_closure: HashSet<usize> = HashSet::new();
+    let mut res_is_end : bool = false;
+    for now in set {
+        let (temp_closure, temp_is_end) = get_void_closure(nfastate_vec, *now, end);
+        if temp_is_end {
+            res_is_end = true;
+        }
+        res_closure.extend(&temp_closure);
+    }
+    (res_closure, res_is_end)
+}
+
+fn get_move_set(nfastate_vec: &Vec<NFAState>, now_set: &HashSet<usize>) -> HashMap<char, HashSet<usize>> {
+
+    let mut move_map : HashMap<char, HashSet<usize>> = HashMap::new();
+    for state in now_set {
+        for transform in nfastate_vec[*state].get_transforms() {
+            if let TransformChar::NormalChar(c) = transform.transform {
+                if !move_map.contains_key(&c) {
+                    let mut move_set: HashSet<usize> = HashSet::new();
+                    move_set.insert(transform.dest);
+                    move_map.insert(c, move_set);
+                }
+                else {
+                    if let Some(temp_set) = move_map.get_mut(&c) {
+                        temp_set.insert(transform.dest);
+                    };
+                }
+            };
+        }
+    }
+    move_map
+}
+
+fn convert_nfa_dfa (nfastate_vec: &Vec<NFAState>, nfa: &NFA) -> DFA {
     let mut dfa = DFA::new();
     let (closure_set, is_end) = get_void_closure(nfastate_vec, nfa.get_start(), nfa.get_end());
+    
     dfa.add_dfa_state(DFAState::new(dfa.gen_next_name(), closure_set, is_end));
-    
-    
-    
+    let mut index = 0;
+    while index < dfa.gen_next_name() {
+        let move_map = get_move_set(nfastate_vec, dfa.get(index).get_nfa_states());
+        for (move_char, move_dests) in &move_map {
+            let (closure_set, is_end) = get_set_void_closure(nfastate_vec, move_dests, nfa.get_end());
+            let dfastate_index = dfa.set_is_exist(&closure_set);
+            if dfastate_index == -1 {
+                let next_name = dfa.gen_next_name();
+                dfa.get(index).add_transform(DFATransform::new(*move_char, next_name));
+                dfa.add_dfa_state(DFAState::new(next_name, closure_set, is_end));       
+            }
+            else {
+                dfa.get(index).add_transform(DFATransform::new(*move_char, dfastate_index as usize));
+            }
+        }
+        index = index + 1;
+    }
     dfa
 }
 
@@ -144,7 +194,7 @@ fn print_nfa(nfa: &NFA, nfastate_vec: &Vec<NFAState>) {
                             c
                         }
                         else {
-                            println!("110 error!");
+                            println!("147 error!");
                             nfa.get_start()
                         };
         for transform in nfastate_vec[temp_state].get_transforms() {
@@ -158,10 +208,11 @@ fn print_nfa(nfa: &NFA, nfastate_vec: &Vec<NFAState>) {
 }
 
 fn main() {
-    let regx = String::from("ac|b*");
+    let regx = String::from("a(c|b)*");
     let regx_char_vec : Vec<RegxChar> = regx_to_suffix(regx);
     print_regx(&regx_char_vec);
-    let (nfastate_vec,nfa) = convert_regx_nfa(regx_char_vec);
+    let (nfastate_vec, nfa) = convert_regx_nfa(regx_char_vec);
     print_nfa(&nfa, &nfastate_vec);
-
+    let dfa = convert_nfa_dfa(&nfastate_vec, &nfa);
+    dfa.print_dfa();
 }

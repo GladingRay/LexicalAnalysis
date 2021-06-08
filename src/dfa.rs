@@ -40,18 +40,19 @@ impl DFAState {
     pub fn set_is_eq(&self, set: &HashSet<usize>) -> bool {
         self.nfa_states.eq(set)
     }
+    pub fn get_nfa_states(&self) -> &HashSet<usize> {
+        &self.nfa_states
+    }
 }
 
 pub struct DFA {
     dfastate_vec : Vec<DFAState>,
-    start : usize
 }
 
 impl DFA {
     pub fn new () -> DFA {
         DFA {
-            dfastate_vec: Vec::new(),
-            start: 0
+            dfastate_vec: Vec::new()
         }
     }
     pub fn add_dfa_state(&mut self, dfa_state: DFAState) {
@@ -60,8 +61,8 @@ impl DFA {
     pub fn gen_next_name(&self) -> usize {
         self.dfastate_vec.len()
     }
-    pub fn get(&self, index: usize) -> &DFAState {
-        &self.dfastate_vec[index]
+    pub fn get(&mut self, index: usize) -> &mut DFAState {
+        &mut self.dfastate_vec[index]
     }
     pub fn set_is_exist(&self, set: &HashSet<usize>) -> isize {
         for state in &self.dfastate_vec {
@@ -70,6 +71,22 @@ impl DFA {
             }
         };
         -1
+    }
+    pub fn print_dfa(&self) {
+        println!("dfa state number = {}", self.dfastate_vec.len());
+        for dfa_state in &self.dfastate_vec {
+            print!("{}{:?}", dfa_state.name, dfa_state.nfa_states);
+            if dfa_state.is_end {
+                print!(" end ");
+            }
+            else {
+                print!("  ")
+            }
+            for trans in &dfa_state.transforms {
+                print!("|{}->{}|",trans.transform_char, trans.dest);
+            }
+            println!();
+        }
     }
 }
 
