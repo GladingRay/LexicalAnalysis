@@ -5,9 +5,7 @@ use regx_process::*;
 use nfa::*;
 use dfa::*;
 use std::collections::VecDeque;
-use std::collections::HashSet;
-use std::collections::HashMap;
-
+use std::io::stdin;
 
 fn convert_regx_nfa(regx_char_vec: Vec<RegxChar>) -> (Vec<NFAState>, NFA) {
     let mut nfastate_vec: Vec<NFAState> = Vec::new();
@@ -85,73 +83,7 @@ fn convert_regx_nfa(regx_char_vec: Vec<RegxChar>) -> (Vec<NFAState>, NFA) {
     (nfastate_vec, res_nfa)
 }
 
-fn get_void_closure (nfastate_vec: &Vec<NFAState>, now: usize, end: usize) -> (HashSet<usize>, bool) {
-    let mut closure_set: HashSet<usize> = HashSet::new();
-    let mut temp_queue: VecDeque<usize> = VecDeque::new();
-    let mut flag: Vec<bool> = Vec::new();
-    let mut index = 0;
-    let mut is_end = false;
-    while index < nfastate_vec.len() {
-        flag.push(false);
-        index = index + 1;
-    }
-    temp_queue.push_back(now);
-    flag[now] = true;
-    while !temp_queue.is_empty() {
-        let temp = if let Some(n) = temp_queue.pop_front() {
-            n
-        }
-        else {0};
-        closure_set.insert(temp);
-        if temp == end {
-            is_end = true;
-        }
-        for transform in nfastate_vec[temp].get_transforms() {
-            if let TransformChar::VoidChar = transform.transform {
-                if flag[transform.dest] == false {
-                    temp_queue.push_back(transform.dest);
-                    flag[transform.dest] = true;
-                }
-            };
-        }
-    }
-    (closure_set, is_end)
-}
 
-fn get_set_void_closure(nfastate_vec: &Vec<NFAState>, set: &HashSet<usize>, end: usize) -> (HashSet<usize>, bool) {
-    let mut res_closure: HashSet<usize> = HashSet::new();
-    let mut res_is_end : bool = false;
-    for now in set {
-        let (temp_closure, temp_is_end) = get_void_closure(nfastate_vec, *now, end);
-        if temp_is_end {
-            res_is_end = true;
-        }
-        res_closure.extend(&temp_closure);
-    }
-    (res_closure, res_is_end)
-}
-
-fn get_move_set(nfastate_vec: &Vec<NFAState>, now_set: &HashSet<usize>) -> HashMap<char, HashSet<usize>> {
-
-    let mut move_map : HashMap<char, HashSet<usize>> = HashMap::new();
-    for state in now_set {
-        for transform in nfastate_vec[*state].get_transforms() {
-            if let TransformChar::NormalChar(c) = transform.transform {
-                if !move_map.contains_key(&c) {
-                    let mut move_set: HashSet<usize> = HashSet::new();
-                    move_set.insert(transform.dest);
-                    move_map.insert(c, move_set);
-                }
-                else {
-                    if let Some(temp_set) = move_map.get_mut(&c) {
-                        temp_set.insert(transform.dest);
-                    };
-                }
-            };
-        }
-    }
-    move_map
-}
 
 fn convert_nfa_dfa (nfastate_vec: &Vec<NFAState>, nfa: &NFA) -> DFA {
     let mut dfa = DFA::new();
@@ -178,41 +110,22 @@ fn convert_nfa_dfa (nfastate_vec: &Vec<NFAState>, nfa: &NFA) -> DFA {
     dfa
 }
 
-fn print_nfa(nfa: &NFA, nfastate_vec: &Vec<NFAState>) {
-    let mut flag: Vec<bool> = Vec::new();
-    let mut index = 0;
-    println!("this nfa start on {}, end on {}", nfa.get_start(), nfa.get_end());
-    while index < nfastate_vec.len() {
-        flag.push(false);
-        index = index + 1;
-    }
-    let mut queue: VecDeque<usize> = VecDeque::new();
-    queue.push_back(nfa.get_start());
-    flag[nfa.get_start()] = true;
-    while !queue.is_empty() {
-        let temp_state = if let Some(c) = queue.pop_front() {
-                            c
-                        }
-                        else {
-                            println!("147 error!");
-                            nfa.get_start()
-                        };
-        for transform in nfastate_vec[temp_state].get_transforms() {
-            println!("{}-{}->{} ", temp_state, transform.transform.to_char(), transform.dest);
-            if flag[transform.dest] == false {
-                queue.push_back(transform.dest);
-                flag[transform.dest] = true;
-            }
-        }
-    }
-}
+
 
 fn main() {
-    let regx = String::from("a(c|b)*");
-    let regx_char_vec : Vec<RegxChar> = regx_to_suffix(regx);
+    println!("输入正则表达式(不支持+,?,-运算符):");
+    let mut regx = String::new();
+    stdin().read_line(&mut regx).expect("input error.");
+    let regx = regx.trim();
+    let regx_char_vec : Vec<RegxChar> = regx_to_suffix(regx.to_string());
     print_regx(&regx_char_vec);
     let (nfastate_vec, nfa) = convert_regx_nfa(regx_char_vec);
     print_nfa(&nfa, &nfastate_vec);
     let dfa = convert_nfa_dfa(&nfastate_vec, &nfa);
     dfa.print_dfa();
+    println!("输入待检查字符串:");
+    let mut input_str = String::new();
+    stdin().read_line(&mut input_str).expect("input error.");
+    let input_str = input_str.trim();
+    println!("{}", dfa.check_string(&input_str));
 }

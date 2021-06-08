@@ -197,6 +197,7 @@ pub fn regx_to_suffix(regx : String) -> Vec<RegxChar> {
 }
 
 pub fn print_regx(regx_char_vec: &Vec<RegxChar>) {
+    print!("正则表达式后缀表达式形式:");
     for elem in regx_char_vec {
         print!("{}", make_regxchar_char(elem));
     }

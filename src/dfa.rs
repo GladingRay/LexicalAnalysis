@@ -73,6 +73,7 @@ impl DFA {
         -1
     }
     pub fn print_dfa(&self) {
+        println!("DFA 部分:");
         println!("dfa state number = {}", self.dfastate_vec.len());
         for dfa_state in &self.dfastate_vec {
             print!("{}{:?}", dfa_state.name, dfa_state.nfa_states);
@@ -87,6 +88,31 @@ impl DFA {
             }
             println!();
         }
+    }
+
+    pub fn check_string(&self, s: &str) -> bool {
+        let mut state = 0;
+        println!("check 部分:");
+        for c in s.chars() {
+            print!("{}-{}->", state, c);
+            if self.dfastate_vec[state].transforms.len() == 0 {
+                return false;
+            }
+            let mut flag = true;
+            for trans in &self.dfastate_vec[state].transforms {
+                if trans.transform_char == c {
+                    state = trans.dest;
+                    flag = false;
+                    break;
+                }
+            }
+            if flag { 
+                println!();
+                return false;
+            }
+        }
+        println!("{}",state);
+        self.dfastate_vec[state].is_end
     }
 }
 
