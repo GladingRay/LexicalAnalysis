@@ -51,15 +51,15 @@ impl NFATransform {
 }
 
 pub struct NFAState {
-    name : usize,
+    _name : usize,
     transforms : Vec<NFATransform>
 }
 
 impl NFAState {
-    pub fn new (name: usize) -> NFAState {
+    pub fn new (_name: usize) -> NFAState {
 
         NFAState {
-            name,
+            _name,
             transforms: Vec::new()
         }
     }
