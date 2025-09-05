@@ -1,70 +1,64 @@
-use std::collections::VecDeque;
-use std::collections::HashSet;
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::collections::VecDeque;
 /*
     构造NFA部分
 */
 pub enum TransformChar {
     NormalChar(char),
-    VoidChar
+    VoidChar,
 }
 
 impl TransformChar {
-    pub fn from(regx_char : char) -> TransformChar {
+    pub fn from(regx_char: char) -> TransformChar {
         if regx_char == '$' {
             TransformChar::VoidChar
-        }
-        else {
+        } else {
             TransformChar::NormalChar(regx_char)
         }
     }
     pub fn to_char(&self) -> char {
         match self {
-            TransformChar::VoidChar => {
-                '$'
-            },
-            TransformChar::NormalChar(c) => {
-                *c
-            }
+            TransformChar::VoidChar => '$',
+            TransformChar::NormalChar(c) => *c,
         }
     }
 }
 
 pub struct NFATransform {
-    pub transform : TransformChar,
-    pub dest : usize
+    pub transform: TransformChar,
+    pub dest: usize,
 }
 
 impl NFATransform {
-    pub fn new (trans_ : TransformChar, dest_ : usize) -> NFATransform {
+    pub fn new(trans_: TransformChar, dest_: usize) -> NFATransform {
         NFATransform {
             transform: trans_,
-            dest: dest_
+            dest: dest_,
         }
     }
-    pub fn new_void(dest_ : usize) -> NFATransform {
+    pub fn new_void(dest_: usize) -> NFATransform {
         NFATransform {
             transform: TransformChar::VoidChar,
-            dest: dest_
+            dest: dest_,
         }
     }
 }
 
 pub struct NFAState {
-    _name : usize,
-    transforms : Vec<NFATransform>
+    _name: usize,
+    transforms: Vec<NFATransform>,
 }
 
 impl NFAState {
-    pub fn new (_name: usize) -> NFAState {
-
+    pub fn new(_name: usize) -> NFAState {
         NFAState {
             _name,
-            transforms: Vec::new()
+            transforms: Vec::new(),
         }
     }
 
-    pub fn add_transform (&mut self, transform: NFATransform) {
+    pub fn add_transform(&mut self, transform: NFATransform) {
         self.transforms.push(transform);
     }
 
@@ -74,16 +68,13 @@ impl NFAState {
 }
 
 pub struct NFA {
-    start : usize,
-    end : usize
+    start: usize,
+    end: usize,
 }
 
 impl NFA {
-    pub fn new (ts: usize, te: usize) -> NFA {
-        NFA {
-            start: ts,
-            end : te
-        }
+    pub fn new(ts: usize, te: usize) -> NFA {
+        NFA { start: ts, end: te }
     }
     pub fn get_start(&self) -> usize {
         self.start
@@ -93,7 +84,11 @@ impl NFA {
     }
 }
 
-pub fn get_void_closure (nfastate_vec: &Vec<NFAState>, now: usize, end: usize) -> (HashSet<usize>, bool) {
+pub fn get_void_closure(
+    nfastate_vec: &Vec<NFAState>,
+    now: usize,
+    end: usize,
+) -> (HashSet<usize>, bool) {
     let mut closure_set: HashSet<usize> = HashSet::new();
     let mut temp_queue: VecDeque<usize> = VecDeque::new();
     let mut flag: Vec<bool> = Vec::new();
@@ -108,8 +103,9 @@ pub fn get_void_closure (nfastate_vec: &Vec<NFAState>, now: usize, end: usize) -
     while !temp_queue.is_empty() {
         let temp = if let Some(n) = temp_queue.pop_front() {
             n
-        }
-        else {0};
+        } else {
+            0
+        };
         closure_set.insert(temp);
         if temp == end {
             is_end = true;
@@ -126,9 +122,13 @@ pub fn get_void_closure (nfastate_vec: &Vec<NFAState>, now: usize, end: usize) -
     (closure_set, is_end)
 }
 
-pub fn get_set_void_closure(nfastate_vec: &Vec<NFAState>, set: &HashSet<usize>, end: usize) -> (HashSet<usize>, bool) {
+pub fn get_set_void_closure(
+    nfastate_vec: &Vec<NFAState>,
+    set: &HashSet<usize>,
+    end: usize,
+) -> (HashSet<usize>, bool) {
     let mut res_closure: HashSet<usize> = HashSet::new();
-    let mut res_is_end : bool = false;
+    let mut res_is_end: bool = false;
     for now in set {
         let (temp_closure, temp_is_end) = get_void_closure(nfastate_vec, *now, end);
         if temp_is_end {
@@ -139,9 +139,11 @@ pub fn get_set_void_closure(nfastate_vec: &Vec<NFAState>, set: &HashSet<usize>, 
     (res_closure, res_is_end)
 }
 
-pub fn get_move_set(nfastate_vec: &Vec<NFAState>, now_set: &HashSet<usize>) -> HashMap<char, HashSet<usize>> {
-
-    let mut move_map : HashMap<char, HashSet<usize>> = HashMap::new();
+pub fn get_move_set(
+    nfastate_vec: &Vec<NFAState>,
+    now_set: &HashSet<usize>,
+) -> HashMap<char, HashSet<usize>> {
+    let mut move_map: HashMap<char, HashSet<usize>> = HashMap::new();
     for state in now_set {
         for transform in nfastate_vec[*state].get_transforms() {
             if let TransformChar::NormalChar(c) = transform.transform {
@@ -149,8 +151,7 @@ pub fn get_move_set(nfastate_vec: &Vec<NFAState>, now_set: &HashSet<usize>) -> H
                     let mut move_set: HashSet<usize> = HashSet::new();
                     move_set.insert(transform.dest);
                     move_map.insert(c, move_set);
-                }
-                else {
+                } else {
                     if let Some(temp_set) = move_map.get_mut(&c) {
                         temp_set.insert(transform.dest);
                     };
@@ -165,7 +166,11 @@ pub fn print_nfa(nfa: &NFA, nfastate_vec: &Vec<NFAState>) {
     let mut flag: Vec<bool> = Vec::new();
     let mut index = 0;
     println!("NFA 部分:");
-    println!("this nfa start on {}, end on {}", nfa.get_start(), nfa.get_end());
+    println!(
+        "this nfa start on {}, end on {}",
+        nfa.get_start(),
+        nfa.get_end()
+    );
     while index < nfastate_vec.len() {
         flag.push(false);
         index = index + 1;
@@ -175,14 +180,18 @@ pub fn print_nfa(nfa: &NFA, nfastate_vec: &Vec<NFAState>) {
     flag[nfa.get_start()] = true;
     while !queue.is_empty() {
         let temp_state = if let Some(c) = queue.pop_front() {
-                            c
-                        }
-                        else {
-                            println!("147 error!");
-                            nfa.get_start()
-                        };
+            c
+        } else {
+            println!("147 error!");
+            nfa.get_start()
+        };
         for transform in nfastate_vec[temp_state].get_transforms() {
-            println!("{}-{}->{} ", temp_state, transform.transform.to_char(), transform.dest);
+            println!(
+                "{}-{}->{} ",
+                temp_state,
+                transform.transform.to_char(),
+                transform.dest
+            );
             if flag[transform.dest] == false {
                 queue.push_back(transform.dest);
                 flag[transform.dest] = true;

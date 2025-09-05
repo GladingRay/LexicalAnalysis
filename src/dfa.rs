@@ -6,32 +6,32 @@ use std::collections::HashSet;
 
 pub struct DFATransform {
     pub transform_char: char,
-    pub dest: usize
+    pub dest: usize,
 }
 
 impl DFATransform {
-    pub fn new (transform_char : char, dest: usize) -> DFATransform {
+    pub fn new(transform_char: char, dest: usize) -> DFATransform {
         DFATransform {
             transform_char,
-            dest
+            dest,
         }
     }
 }
 
 pub struct DFAState {
-    name : usize,
-    is_end : bool,
-    nfa_states : HashSet<usize>,
-    transforms : Vec<DFATransform>
+    name: usize,
+    is_end: bool,
+    nfa_states: HashSet<usize>,
+    transforms: Vec<DFATransform>,
 }
 
 impl DFAState {
-    pub fn new (name : usize, nfa_states : HashSet<usize>, is_end : bool) -> DFAState {
+    pub fn new(name: usize, nfa_states: HashSet<usize>, is_end: bool) -> DFAState {
         DFAState {
             name,
             is_end,
             nfa_states,
-            transforms : Vec::new()
+            transforms: Vec::new(),
         }
     }
     pub fn add_transform(&mut self, dfa_trans: DFATransform) {
@@ -46,13 +46,13 @@ impl DFAState {
 }
 
 pub struct DFA {
-    dfastate_vec : Vec<DFAState>,
+    dfastate_vec: Vec<DFAState>,
 }
 
 impl DFA {
-    pub fn new () -> DFA {
+    pub fn new() -> DFA {
         DFA {
-            dfastate_vec: Vec::new()
+            dfastate_vec: Vec::new(),
         }
     }
     pub fn add_dfa_state(&mut self, dfa_state: DFAState) {
@@ -69,7 +69,7 @@ impl DFA {
             if state.set_is_eq(set) {
                 return state.name as isize;
             }
-        };
+        }
         -1
     }
     pub fn print_dfa(&self) {
@@ -79,12 +79,11 @@ impl DFA {
             print!("{}{:?}", dfa_state.name, dfa_state.nfa_states);
             if dfa_state.is_end {
                 print!(" end ");
-            }
-            else {
+            } else {
                 print!("  ")
             }
             for trans in &dfa_state.transforms {
-                print!("|{}->{}|",trans.transform_char, trans.dest);
+                print!("|{}->{}|", trans.transform_char, trans.dest);
             }
             println!();
         }
@@ -106,13 +105,12 @@ impl DFA {
                     break;
                 }
             }
-            if flag { 
+            if flag {
                 println!();
                 return false;
             }
         }
-        println!("{}",state);
+        println!("{}", state);
         self.dfastate_vec[state].is_end
     }
 }
-
